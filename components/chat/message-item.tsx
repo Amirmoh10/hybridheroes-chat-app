@@ -43,12 +43,12 @@ export function MessageItem({ message }: MessageItemProps) {
 const styles = StyleSheet.create({
   assistantRow: {
     alignSelf: "stretch",
-    paddingVertical: 6,
+    paddingVertical: 8,
     width: "100%",
   },
   userRow: {
     alignItems: "flex-end",
-    paddingVertical: 6,
+    paddingVertical: 4,
     width: "100%",
   },
   userBubble: {

@@ -1,18 +1,22 @@
 import { Composer } from "@/components/chat/composer";
 import { ChatHeader } from "@/components/chat/chat-header";
+import {
+  DEFAULT_CHAT_MODEL_ID,
+  getChatModel,
+} from "@/components/chat/models";
+import { ModelPicker } from "@/components/chat/model-picker";
 import { MessageList, MessageListHandle } from "@/components/chat/message-list";
 import { hasRenderableText } from "@/components/chat/message-utils";
 import { CHAT_COLORS, CHAT_FONTS } from "@/components/chat/theme";
 import { generateAPIUrl } from "@/utils";
 import { useChat } from "@ai-sdk/react";
-import { Feather } from "@expo/vector-icons";
 import { DefaultChatTransport, UIMessage } from "ai";
 import { fetch as expoFetch } from "expo/fetch";
 import { useEffect, useRef, useState } from "react";
 import {
+  Image,
   Keyboard,
   KeyboardEventName,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
@@ -23,6 +27,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const DEFAULT_COMPOSER_HEIGHT = 118;
 const LIST_BOTTOM_PADDING = 24;
+const ARROW_DOWN_ICON = require("../../assets/images/arrow-down.png");
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
@@ -31,7 +36,10 @@ export default function ChatScreen() {
   const [input, setInput] = useState("");
   const [isNearBottom, setIsNearBottom] = useState(true);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isModelPickerVisible, setIsModelPickerVisible] = useState(false);
   const [layoutHeight, setLayoutHeight] = useState(0);
+  const [selectedModelId, setSelectedModelId] = useState(DEFAULT_CHAT_MODEL_ID);
   const messageListRef = useRef<MessageListHandle>(null);
   const isNearBottomRef = useRef(true);
 
@@ -52,9 +60,11 @@ export default function ChatScreen() {
     (!lastAssistantMessage || !hasRenderableText(lastAssistantMessage));
   const showScrollToBottom =
     contentHeight > layoutHeight + 16 && !isNearBottom;
-  const composerBottomPadding = isKeyboardVisible
-    ? 8
+  const composerBottomInset = isKeyboardVisible
+    ? 0
     : Math.max(insets.bottom, 12);
+  const composerKeyboardOffset = Platform.OS === "ios" ? keyboardHeight : 0;
+  const selectedModel = getChatModel(selectedModelId);
   const keyboardShowEvent: KeyboardEventName =
     Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
   const keyboardHideEvent: KeyboardEventName =
@@ -90,7 +100,14 @@ export default function ChatScreen() {
 
     setInput("");
     handleNearBottomChange(true);
-    void sendMessage({ text: nextMessage });
+    void sendMessage(
+      { text: nextMessage },
+      {
+        body: {
+          model: selectedModelId,
+        },
+      },
+    );
     requestAnimationFrame(() => {
       scrollToBottom(true);
     });
@@ -128,10 +145,14 @@ export default function ChatScreen() {
   }, [composerHeight]);
 
   useEffect(() => {
-    const showSubscription = Keyboard.addListener(keyboardShowEvent, () => {
+    const showSubscription = Keyboard.addListener(keyboardShowEvent, (event) => {
+      Keyboard.scheduleLayoutAnimation(event);
+      setKeyboardHeight(event.endCoordinates.height);
       setIsKeyboardVisible(true);
     });
-    const hideSubscription = Keyboard.addListener(keyboardHideEvent, () => {
+    const hideSubscription = Keyboard.addListener(keyboardHideEvent, (event) => {
+      Keyboard.scheduleLayoutAnimation(event);
+      setKeyboardHeight(0);
       setIsKeyboardVisible(false);
     });
 
@@ -142,49 +163,64 @@ export default function ChatScreen() {
   }, [keyboardHideEvent, keyboardShowEvent]);
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={styles.keyboardAvoiding}
-    >
-      <View style={styles.screen}>
-        <ChatHeader topInset={insets.top} />
+    <View style={styles.screen}>
+      <ChatHeader
+        onPressModel={() => {
+          setIsModelPickerVisible(true);
+        }}
+        topInset={insets.top}
+      />
 
-        <View style={styles.listArea}>
-          <MessageList
-            bottomPadding={LIST_BOTTOM_PADDING}
-            messages={messages as UIMessage[]}
-            onContentHeightChange={setContentHeight}
-            onLayoutHeightChange={setLayoutHeight}
-            onNearBottomChange={handleNearBottomChange}
-            ref={messageListRef}
-            showAssistantPlaceholder={showAssistantPlaceholder}
-          />
-        </View>
+      <View style={styles.listArea}>
+        <MessageList
+          bottomPadding={composerHeight + LIST_BOTTOM_PADDING}
+          messages={messages as UIMessage[]}
+          onContentHeightChange={setContentHeight}
+          onLayoutHeightChange={setLayoutHeight}
+          onNearBottomChange={handleNearBottomChange}
+          ref={messageListRef}
+          showAssistantPlaceholder={showAssistantPlaceholder}
+        />
+      </View>
 
-        <View
-          onLayout={(event) => {
-            setComposerHeight(event.nativeEvent.layout.height);
+      <View
+        onLayout={(event) => {
+          setComposerHeight(event.nativeEvent.layout.height);
+        }}
+        style={[
+          styles.composerLayer,
+          {
+            bottom: composerKeyboardOffset,
+          },
+        ]}
+      >
+        {error ? <Text style={styles.errorText}>{error.message}</Text> : null}
+
+        <Composer
+          bottomInset={composerBottomInset}
+          keyboardHeight={keyboardHeight}
+          modelLabel={selectedModel.shortLabel}
+          onChangeText={handleInputChange}
+          onModelPress={() => {
+            setIsModelPickerVisible(true);
           }}
+          onStop={handleStop}
+          onSubmit={handleSend}
+          placeholder="Message HybridHeroesGPT"
+          status={status}
+          topInset={insets.top}
+          value={input}
+        />
+      </View>
+
+      {showScrollToBottom ? (
+        <View
+          pointerEvents="box-none"
           style={[
-            styles.composerLayer,
-            {
-              paddingBottom: composerBottomPadding,
-            },
+            styles.scrollButtonFrame,
+            { bottom: composerKeyboardOffset + composerHeight + 18 },
           ]}
         >
-          {error ? <Text style={styles.errorText}>{error.message}</Text> : null}
-
-          <Composer
-            onChangeText={handleInputChange}
-            onStop={handleStop}
-            onSubmit={handleSend}
-            placeholder="Message HybridHeroesGPT"
-            status={status}
-            value={input}
-          />
-        </View>
-
-        {showScrollToBottom ? (
           <Pressable
             accessibilityLabel="Scroll to latest message"
             onPress={() => {
@@ -193,23 +229,34 @@ export default function ChatScreen() {
                 scrollToBottom(true);
               });
             }}
-            style={[
+            style={({ pressed }) => [
               styles.scrollButton,
-              { bottom: composerHeight + 18 },
+              pressed ? styles.scrollButtonPressed : null,
             ]}
           >
-            <Feather color={CHAT_COLORS.textPrimary} name="arrow-down" size={24} />
+            <Image
+              accessibilityIgnoresInvertColors={true}
+              resizeMode="contain"
+              source={ARROW_DOWN_ICON}
+              style={styles.scrollIcon}
+            />
           </Pressable>
-        ) : null}
-      </View>
-    </KeyboardAvoidingView>
+        </View>
+      ) : null}
+
+      <ModelPicker
+        onClose={() => {
+          setIsModelPickerVisible(false);
+        }}
+        onSelect={setSelectedModelId}
+        selectedModelId={selectedModelId}
+        visible={isModelPickerVisible}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboardAvoiding: {
-    flex: 1,
-  },
   screen: {
     backgroundColor: CHAT_COLORS.background,
     flex: 1,
@@ -221,8 +268,12 @@ const styles = StyleSheet.create({
   },
   composerLayer: {
     backgroundColor: "transparent",
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    left: 0,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    position: "absolute",
+    right: 0,
+    zIndex: 20,
   },
   errorText: {
     color: CHAT_COLORS.error,
@@ -232,18 +283,22 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: "center",
   },
+  scrollButtonFrame: {
+    alignItems: "center",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    zIndex: 10,
+  },
   scrollButton: {
     alignItems: "center",
     backgroundColor: CHAT_COLORS.surface,
     borderColor: CHAT_COLORS.border,
-    borderRadius: 26,
+    borderRadius: 100,
     borderWidth: 1,
     elevation: 6,
-    height: 52,
     justifyContent: "center",
-    left: "50%",
-    marginLeft: -26,
-    position: "absolute",
+    padding: 8.5,
     shadowColor: CHAT_COLORS.shadow,
     shadowOffset: {
       height: 4,
@@ -251,7 +306,13 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.12,
     shadowRadius: 16,
-    width: 52,
-    zIndex: 10,
+  },
+  scrollButtonPressed: {
+    opacity: 0.76,
+  },
+  scrollIcon: {
+    height: 18,
+    tintColor: CHAT_COLORS.textPrimary,
+    width: 18,
   },
 });

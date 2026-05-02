@@ -357,23 +357,23 @@ export function MarkdownText({ text }: MarkdownTextProps) {
 
 const styles = StyleSheet.create({
   container: {
-    gap: 20,
+    gap: 16,
     width: "100%",
   },
   heading: {
     color: CHAT_COLORS.textPrimary,
     fontFamily: CHAT_FONTS.bold,
-    fontSize: 21,
-    letterSpacing: -0.2,
-    lineHeight: 29,
-    marginTop: 2,
+    fontSize: 20,
+    letterSpacing: -0.3,
+    lineHeight: 30,
+    marginTop: 6,
   },
   headingLarge: {
-    fontSize: 23,
-    lineHeight: 31,
+    fontSize: 20,
+    lineHeight: 30,
   },
   list: {
-    gap: 17,
+    gap: 12,
     paddingVertical: 2,
   },
   listItem: {
@@ -384,19 +384,19 @@ const styles = StyleSheet.create({
   marker: {
     color: CHAT_COLORS.textPrimary,
     fontFamily: CHAT_FONTS.regular,
-    fontSize: 19,
-    lineHeight: 30,
-    marginRight: 18,
-    minWidth: 22,
+    fontSize: 16,
+    lineHeight: 22,
+    marginRight: 12,
+    minWidth: 16,
     textAlign: "left",
   },
   body: {
     color: CHAT_COLORS.textPrimary,
     flex: 1,
     fontFamily: CHAT_FONTS.regular,
-    fontSize: 19,
-    letterSpacing: -0.2,
-    lineHeight: 30,
+    fontSize: 16,
+    letterSpacing: -0.3,
+    lineHeight: 22,
   },
   bold: {
     fontFamily: CHAT_FONTS.bold,
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     backgroundColor: CHAT_COLORS.surfaceMuted,
     borderRadius: 5,
     fontFamily: MONOSPACE_FONT,
-    fontSize: 17,
+    fontSize: 15,
   },
   codeBlock: {
     backgroundColor: CHAT_COLORS.surfaceMuted,

@@ -109,8 +109,8 @@ function Separator() {
 const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
-    paddingHorizontal: 22,
-    paddingTop: 10,
+    paddingHorizontal: 20,
+    paddingTop: 8,
   },
   footer: {
     minHeight: 12,

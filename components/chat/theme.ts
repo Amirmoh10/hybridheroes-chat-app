@@ -6,8 +6,8 @@ export const CHAT_COLORS = {
   shadow: "#000000",
   textPrimary: "#000000",
   textSecondary: "#767676",
-  placeholder: "#9A9A9A",
-  accent: "#1A73E8",
+  placeholder: "#8F8F8F",
+  accent: "#0385FF",
   error: "#C73A3A",
 };
 
