@@ -1,50 +1,90 @@
-# Welcome to your Expo app 👋
+# HybridHeroesGPT
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+HybridHeroesGPT is a small Expo chat app built with React Native and the Vercel AI SDK. It focuses on the core mobile chat experience: streaming responses, model selection, Markdown rendering, multiline input, keyboard behavior, send/stop states, and chat-style scrolling.
 
-## Get started
+The full source is available at [github.com/Amirmoh10/hybridheroes-chat-app](https://github.com/Amirmoh10/hybridheroes-chat-app).
 
-1. Install dependencies
+## Tech Stack
 
-   ```bash
-   npm install
-   ```
+- [Expo](https://expo.dev/) and [Expo Router](https://docs.expo.dev/router/introduction/)
+- [React Native](https://reactnative.dev/)
+- [Vercel AI SDK](https://ai-sdk.dev/docs/getting-started/expo)
+- [`useChat`](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat) with [`DefaultChatTransport`](https://ai-sdk.dev/docs/ai-sdk-ui/transport)
+- `expo/fetch` for streaming in the mobile runtime
+- TypeScript
 
-2. Start the app
+## Requirements
 
-   ```bash
-   npx expo start
-   ```
+- Node.js 18+
+- pnpm
+- Expo CLI through the project scripts
+- iOS Simulator, Android Emulator, or Expo Go
+- Vercel AI Gateway API key
 
-In the output, you'll find options to open the app in a
+## Environment Variables
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Create `.env.local` in the project root:
 
 ```bash
-npm run reset-project
+AI_GATEWAY_API_KEY=your_vercel_ai_gateway_key
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+For production builds or any setup where the mobile app calls a deployed API host, also set:
 
-## Learn more
+```bash
+EXPO_PUBLIC_API_BASE_URL=https://your-api-host.example
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+In local development, the app derives the API origin from Expo using `utils.ts`.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Install
 
-## Join the community
+```bash
+pnpm install
+```
 
-Join our community of developers creating universal apps.
+## Run
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Start the Expo dev server:
+
+```bash
+pnpm start
+```
+
+Open directly on iOS:
+
+```bash
+pnpm ios
+```
+
+Open directly on Android:
+
+```bash
+pnpm android
+```
+
+## Quality Checks
+
+```bash
+PATH=/usr/local/bin:$PATH pnpm exec tsc --noEmit
+PATH=/usr/local/bin:$PATH pnpm lint
+```
+
+## Project Structure
+
+```text
+app/api/chat+api.ts              Streaming AI SDK API route
+app/index.tsx                    App entry screen
+components/chat/chat-screen.tsx  Chat state, transport, keyboard, and scroll coordination
+components/chat/composer.tsx     Multiline composer, model chip, send/stop, expanded input
+components/chat/message-list.tsx FlatList-based message list
+components/chat/message-item.tsx User and assistant message rendering
+components/chat/markdown.tsx     Lightweight Markdown renderer
+components/chat/models.ts        Supported chat models
+utils.ts                         Expo API URL helper
+docs/blog.md                     Tutorial article
+```
+
+## Tutorial
+
+The implementation walkthrough lives in [docs/blog.md](docs/blog.md).

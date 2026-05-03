@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     model: selectedModel,
     messages: await convertToModelMessages(messages),
     system:
-      "You are HybridHeroesGPT, a concise assistant for React Native, Expo, state management, and mobile UX questions.",
+      "You are HybridHeroesGPT, a concise and helpful chat assistant. Keep responses clear, conversational, and useful.",
   });
 
   return result.toUIMessageStreamResponse({
