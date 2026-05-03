@@ -12,7 +12,7 @@ import { generateAPIUrl } from "@/utils";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, UIMessage } from "ai";
 import { fetch as expoFetch } from "expo/fetch";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Image,
   Keyboard,
@@ -40,8 +40,11 @@ export default function ChatScreen() {
   const [isModelPickerVisible, setIsModelPickerVisible] = useState(false);
   const [layoutHeight, setLayoutHeight] = useState(0);
   const [selectedModelId, setSelectedModelId] = useState(DEFAULT_CHAT_MODEL_ID);
+  const [pinnedUserMessageId, setPinnedUserMessageId] = useState<string | null>(null);
+  const [activeScrollRequestId, setActiveScrollRequestId] = useState<string | null>(null);
   const messageListRef = useRef<MessageListHandle>(null);
   const isNearBottomRef = useRef(true);
+  const pendingSendRef = useRef(false);
 
   const { clearError, error, messages, sendMessage, status, stop } = useChat({
     transport: new DefaultChatTransport({
@@ -58,8 +61,22 @@ export default function ChatScreen() {
   const showAssistantPlaceholder =
     isGenerating &&
     (!lastAssistantMessage || !hasRenderableText(lastAssistantMessage));
+
+  const latestUserMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") return messages[i].id;
+    }
+    return null;
+  }, [messages]);
+
+  const isPinActive =
+    pinnedUserMessageId != null && pinnedUserMessageId === latestUserMessageId;
+
+  const bottomSpacerHeight = isPinActive && layoutHeight > 0 ? layoutHeight : 0;
+
+  const realContentHeight = contentHeight - bottomSpacerHeight;
   const showScrollToBottom =
-    contentHeight > layoutHeight + 16 && !isNearBottom;
+    realContentHeight > layoutHeight + 16 && !isNearBottom;
   const composerBottomInset = isKeyboardVisible
     ? 0
     : Math.max(insets.bottom, 12);
@@ -99,7 +116,8 @@ export default function ChatScreen() {
     }
 
     setInput("");
-    handleNearBottomChange(true);
+    pendingSendRef.current = true;
+
     void sendMessage(
       { text: nextMessage },
       {
@@ -108,41 +126,31 @@ export default function ChatScreen() {
         },
       },
     );
-    requestAnimationFrame(() => {
-      scrollToBottom(true);
-    });
   };
 
   const handleStop = () => {
     stop();
-    requestAnimationFrame(() => {
-      scrollToBottom(true);
-    });
   };
 
+  // Convert pending-send into a pin once the new user message lands in state.
+  // messages is stale inside handleSend, so we pick up the new id here.
   useEffect(() => {
-    if (!messages.length && !showAssistantPlaceholder) {
-      return;
-    }
+    if (!pendingSendRef.current) return;
+    if (latestUserMessageId == null) return;
+    if (latestUserMessageId === pinnedUserMessageId) return;
 
-    if (!isNearBottomRef.current) {
-      return;
-    }
+    pendingSendRef.current = false;
+    setPinnedUserMessageId(latestUserMessageId);
+    setActiveScrollRequestId(latestUserMessageId);
+  }, [latestUserMessageId, pinnedUserMessageId]);
 
-    requestAnimationFrame(() => {
-      scrollToBottom(status !== "streaming");
-    });
-  }, [messages, showAssistantPlaceholder, status]);
-
+  // When idle and near bottom, keep the list scrolled to the bottom as the
+  // composer grows (multi-line input) or shrinks.
   useEffect(() => {
-    if (!isNearBottomRef.current) {
-      return;
-    }
-
-    requestAnimationFrame(() => {
-      scrollToBottom(false);
-    });
-  }, [composerHeight]);
+    if (isGenerating) return;
+    if (!isNearBottomRef.current) return;
+    requestAnimationFrame(() => scrollToBottom(false));
+  }, [composerHeight, isGenerating]);
 
   useEffect(() => {
     const showSubscription = Keyboard.addListener(keyboardShowEvent, (event) => {
@@ -174,10 +182,13 @@ export default function ChatScreen() {
       <View style={styles.listArea}>
         <MessageList
           bottomPadding={composerHeight + LIST_BOTTOM_PADDING}
+          bottomSpacerHeight={bottomSpacerHeight}
           messages={messages as UIMessage[]}
           onContentHeightChange={setContentHeight}
           onLayoutHeightChange={setLayoutHeight}
           onNearBottomChange={handleNearBottomChange}
+          onPendingScrollSatisfied={() => setActiveScrollRequestId(null)}
+          pendingScrollMessageId={activeScrollRequestId}
           ref={messageListRef}
           showAssistantPlaceholder={showAssistantPlaceholder}
         />
@@ -224,9 +235,13 @@ export default function ChatScreen() {
           <Pressable
             accessibilityLabel="Scroll to latest message"
             onPress={() => {
+              // Collapse spacer first, then scroll — otherwise scrollToBottom
+              // lands inside the empty spacer instead of at the assistant tail.
+              setPinnedUserMessageId(null);
+              setActiveScrollRequestId(null);
               handleNearBottomChange(true);
               requestAnimationFrame(() => {
-                scrollToBottom(true);
+                requestAnimationFrame(() => scrollToBottom(true));
               });
             }}
             style={({ pressed }) => [

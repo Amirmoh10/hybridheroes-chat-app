@@ -9,7 +9,7 @@ import {
   View,
   type NativeScrollEvent,
 } from "react-native";
-import { forwardRef, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 
 export type MessageListHandle = {
   scrollToBottom: (animated?: boolean) => void;
@@ -17,10 +17,13 @@ export type MessageListHandle = {
 
 type MessageListProps = {
   bottomPadding: number;
+  bottomSpacerHeight: number;
   messages: UIMessage[];
   onContentHeightChange: (height: number) => void;
   onLayoutHeightChange: (height: number) => void;
   onNearBottomChange: (isNearBottom: boolean) => void;
+  onPendingScrollSatisfied?: () => void;
+  pendingScrollMessageId: string | null;
   showAssistantPlaceholder: boolean;
 };
 
@@ -30,10 +33,13 @@ export const MessageList = forwardRef<MessageListHandle, MessageListProps>(
   function MessageList(
     {
       bottomPadding,
+      bottomSpacerHeight,
       messages,
       onContentHeightChange,
       onLayoutHeightChange,
       onNearBottomChange,
+      onPendingScrollSatisfied,
+      pendingScrollMessageId,
       showAssistantPlaceholder,
     },
     ref,
@@ -66,6 +72,18 @@ export const MessageList = forwardRef<MessageListHandle, MessageListProps>(
       onNearBottomChange(distanceFromBottom <= NEAR_BOTTOM_THRESHOLD);
     };
 
+    const listFooter = useMemo(
+      () => (
+        <View style={styles.footer}>
+          {showAssistantPlaceholder ? <TypingPlaceholder /> : null}
+          {bottomSpacerHeight > 0 ? (
+            <View style={{ height: bottomSpacerHeight }} />
+          ) : null}
+        </View>
+      ),
+      [showAssistantPlaceholder, bottomSpacerHeight],
+    );
+
     return (
       <FlatList
         contentContainerStyle={[
@@ -79,20 +97,41 @@ export const MessageList = forwardRef<MessageListHandle, MessageListProps>(
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         keyboardShouldPersistTaps="handled"
         keyExtractor={(message) => message.id}
-        ListFooterComponent={
-          <View style={styles.footer}>
-            {showAssistantPlaceholder ? <TypingPlaceholder /> : null}
-          </View>
-        }
+        ListFooterComponent={listFooter}
         onContentSizeChange={(_, height) => {
           contentHeightRef.current = height;
           onContentHeightChange(height);
+
+          if (pendingScrollMessageId) {
+            const targetId = pendingScrollMessageId;
+            requestAnimationFrame(() => {
+              const idx = messages.findIndex((m) => m.id === targetId);
+              if (idx < 0) return;
+              listRef.current?.scrollToIndex({
+                index: idx,
+                viewPosition: 0,
+                animated: true,
+              });
+              onPendingScrollSatisfied?.();
+            });
+          }
         }}
         onLayout={(event) => {
           layoutHeightRef.current = event.nativeEvent.layout.height;
           onLayoutHeightChange(event.nativeEvent.layout.height);
         }}
         onScroll={handleScroll}
+        onScrollToIndexFailed={(info) => {
+          const approxOffset = info.averageItemLength * info.index;
+          listRef.current?.scrollToOffset({ offset: approxOffset, animated: false });
+          setTimeout(() => {
+            listRef.current?.scrollToIndex({
+              index: info.index,
+              viewPosition: 0,
+              animated: true,
+            });
+          }, 100);
+        }}
         ref={listRef}
         renderItem={({ item }) => <MessageItem message={item} />}
         scrollEventThrottle={16}
